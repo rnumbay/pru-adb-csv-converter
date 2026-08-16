@@ -1,0 +1,6 @@
+target/
+local-data/
+*.iml
+.idea/
+.vscode/
+.DS_Store
