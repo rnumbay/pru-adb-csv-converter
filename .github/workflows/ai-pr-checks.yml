@@ -1,0 +1,39 @@
+name: AI PR Checks
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Check for hardcoded secrets
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD \
+            | grep -iE '(password|secret|api_key|token|private_key)\s*=\s*["'"'"'][^"'"'"']{8,}' \
+            && exit 1 || echo "No secrets detected"
+
+      - name: Apply labels on success
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "Guardrate Cleared" --color "059669" 2>/dev/null || true
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --add-label "Guardrate Cleared"
+
+      - name: Comment scan result
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          STATUS="${{ job.status == 'success' && '✅ Secrets scan passed. Labels applied.' || '❌ Secrets scan failed — review logs.' }}"
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "**AI PR Guardrail Scan** — $STATUS"

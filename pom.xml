@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    Same parent, Java version and groupId as hr-producer-sync (the project that produces the
+    LNAERROR artifact this one reads), so the two build with one toolchain. This is a separate
+    deployable on purpose: it holds no database, no schema and no domain logic - it is a file
+    format converter, and coupling it to HR1's persistence stack would give it a Postgres/DB2
+    dependency it has no use for.
+  -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.3.4</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.prudential.adb</groupId>
+  <artifactId>lnaerror-excel-converter</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <name>lnaerror-excel-converter</name>
+  <description>Converts HR1's LNAERROR fixed-width artifact into a formatted Excel workbook.</description>
+
+  <properties>
+    <java.version>21</java.version>
+    <poi.version>5.3.0</poi.version>
+  </properties>
+
+  <dependencies>
+    <!--
+      Core starter only - no web, no JPA. This app is a batch/CLI converter; see
+      spring.main.web-application-type in application.yml.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+
+    <!-- XLSX generation. Version is explicit: spring-boot-starter-parent does not manage POI. -->
+    <dependency>
+      <groupId>org.apache.poi</groupId>
+      <artifactId>poi-ooxml</artifactId>
+      <version>${poi.version}</version>
+    </dependency>
+
+    <!-- Metadata for the @ConfigurationProperties class, for IDE completion in application.yml -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>

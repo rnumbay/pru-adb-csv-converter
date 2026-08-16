@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: lnaerror-excel-converter
+  main:
+    # A converter, not a service: no Tomcat, and the JVM exits when the run finishes.
+    web-application-type: none
+    banner-mode: off
+
+logging:
+  level:
+    com.prudential.adb.allstate.hr.lnaexcel: INFO
+  pattern:
+    # Console-first: this is read as CLI output, not scraped out of a log aggregator.
+    console: "%d{HH:mm:ss} %-5level %msg%n"
+
+lnaerror-excel:
+  # Where lnaerror-*.dat files are looked for when no --input argument is given. Defaults to
+  # hr-producer-sync's own ingestion.output-directory, assuming the two repos sit side by side -
+  # that is where the files this app reads are actually written.
+  input-directory: ${LNAERROR_INPUT_DIRECTORY:../pru-adb-poc/local-data/ingestion-output}
+
+  # Where workbooks are written. Deliberately not the ingestion output directory: that one holds
+  # the legacy-layout artifacts operations reconciles a run against, and dropping .xlsx files into
+  # it would blur what is an artifact of the run and what is a convenience copy of one.
+  output-directory: ${LNAERROR_OUTPUT_DIRECTORY:./local-data/excel}
+
+  # Glob matched against file names when the input is a directory.
+  file-pattern: "lnaerror-*.dat"
+
+  # Where to look for the inbound LNA feed a report was produced from. The feed supplies what
+  # LNAERROR cannot carry on its own: the failing record's own name (the report carries only the
+  # bundle's BD name), the Type / Bundle / Key columns, and the rows for records that did not fail.
+  #
+  # The right file is found by MATCHING, not by name - each candidate is checked against the report
+  # (every row whose error code implies a record type must find that type at that position) and a
+  # candidate that disagrees is rejected. That is what makes searching a directory safe: a feed from
+  # the wrong cycle would otherwise fill every row with a real name from the wrong record. When
+  # nothing matches, those two columns are simply omitted.
+  feed-directory: ${LNAERROR_FEED_DIRECTORY:../pru-adb-poc/local-data/feed-landing}
+
+  # Glob for candidate feeds in feed-directory. Not "*": the landing directory holds other things,
+  # and a file that is obviously not a feed is not worth reading to find that out.
+  feed-file-pattern: "ALLSTATE*"
+
+  # One specific feed, overriding the search above. Normally left unset - pass --feed for a one-off.
+  feed-file: ${LNAERROR_FEED_FILE:}
+
+  # Character set of the .dat. UTF-8 is what hr-producer-sync writes; a file taken straight off
+  # z/OS may need IBM037 or similar. Undecodable bytes are replaced, never fatal.
+  charset: UTF-8
+
+  # Mask the SSN/TIN column to its last four digits. On by default: the workbook is a convenience
+  # copy that gets mailed around and parked in shared drives, unlike the .dat it comes from, so
+  # full nine-digit identifiers are not spread by default. Turn off deliberately, for a run whose
+  # output stays within the same controls as the source artifact.
+  mask-tax-id: ${LNAERROR_MASK_TAX_ID:true}
+
+  # Abort a file whose records do not match the declared layout, instead of converting it and
+  # logging the anomalies. Off by default - this is the error log for a feed that already failed,
+  # and one malformed record is a poor reason to withhold the other 256.
+  fail-on-layout-warning: false
+
+  # A row for every record in the feed, not only the ones that failed. LNAERROR holds errors, so on
+  # its own the sheet has no row for the file header, a clean contra header, or any record that
+  # passed - which is what makes it awkward to line up against the test-records catalog, where every
+  # record has a row. Needs a feed; a record that failed more than once keeps one row per error.
+  include-records-without-errors: true
+
+  # The workbook's one sheet: one row per record, the test-records catalog's own eight columns, then
+  # Error Code, Feed Field and Field Position (bytes).
+  data-sheet-name: "Records"
+
+  # Replace an existing workbook for the same cycle. False makes a re-run fail loudly rather than
+  # silently rewriting a file someone may already have open.
+  overwrite-existing: true
